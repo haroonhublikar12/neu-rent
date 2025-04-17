@@ -4,9 +4,9 @@ import os
 from getpass import getpass
 import hashlib
 import uuid
+import re  # Importing regex module for email validation
 
 def display_logo():
-    # Display logo.txt. On Windows, 'type' is used (or fallback to Python file I/O).
     try:
         os.system("type logo.txt")
     except Exception:
@@ -19,6 +19,13 @@ def display_logo():
 def signup(cursor, conn):
     print("\n=== Signup ===")
     email = input("Enter your email: ").strip()
+
+    # Email format validation using regex
+    email_regex = r'^[\w\.-]+@[\w\.-]+\.\w+$'
+    if not re.match(email_regex, email):
+        print("Invalid email format. Please enter a valid email address.\n")
+        return None
+
     # Verify that the email is unique by checking the user table.
     cursor.execute("SELECT * FROM user WHERE email = %s", (email,))
     if cursor.fetchone() is not None:
@@ -60,21 +67,18 @@ def login(cursor):
     email = input("Enter your email: ").strip()
     password = getpass("Enter your password: ")
 
-    # Retrieve the user record using the email.
     cursor.execute("SELECT * FROM user WHERE email = %s", (email,))
     user_record = cursor.fetchone()
     if user_record is None:
         print("No account found with that email. Please sign up first.\n")
         return None
 
-    # The user table is expected to have: user_id, auth_id, first_name, last_name, phone, email.
     auth_id = user_record[1]
     cursor.execute("SELECT * FROM user_auth WHERE auth_id = %s", (auth_id,))
     auth_record = cursor.fetchone()
     stored_password_hash = auth_record[2]
     salt = auth_record[3]
-    
-    # Hash the provided password with the retrieved salt.
+
     password_hash = hashlib.sha256((salt + password).encode()).hexdigest()
     if password_hash == stored_password_hash:
         print("Login successful!\n")
@@ -85,7 +89,6 @@ def login(cursor):
 
 def main_menu(cursor, conn, authenticated_email):
     logged_in = True
-    # These column headers are used when displaying listings.
     columns = ['street number', 'street name', 'city', 'state', 'zip', 
                'room number', 'square foot', 'price', 'bedrooms']
     while logged_in:
@@ -137,7 +140,6 @@ def main_menu(cursor, conn, authenticated_email):
                 else:
                     print("No listings available.\n")
             elif filter_choice == '2':
-                # This branch can be extended to filter by custom values.
                 print("Filter by value option not implemented yet.\n")
         elif usr_choice == '3':
             print("Logging out...\n")
@@ -151,10 +153,7 @@ def main_menu(cursor, conn, authenticated_email):
     return
 
 def main():
-    # Display the logo at the start.
     display_logo()
-
-    # Database connection loop.
     connected = False
     while not connected:
         db_username = input("Enter username for MySQL server: ")
@@ -171,8 +170,7 @@ def main():
         except pymysql.Error as ex:
             print("Username or password is invalid, please enter again.\n")
     cur = conn.cursor()
-    
-    # Outer loop for authentication, so a user can log out and a new user can log in.
+
     while True:
         authenticated_email = None
         while authenticated_email is None:
@@ -188,7 +186,6 @@ def main():
                 print("Invalid option. Please select 1 or 2.\n")
         print(f"Welcome, {authenticated_email}!\n")
         main_menu(cur, conn, authenticated_email)
-        # When main_menu returns, the user has logged out.
         print("You have been logged out.\n")
 
 if __name__ == "__main__":
